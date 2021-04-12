@@ -1,4 +1,7 @@
-﻿Handlebars.registerHelper('toCapitalCase', function (str) {
+﻿//const siteName = "https://insider-online.herokuapp.com";
+const siteName = "https://theinternetfool.ca";
+
+Handlebars.registerHelper('toCapitalCase', function (str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 });
 
@@ -117,7 +120,8 @@ function generateNewGame() {
     lengthInMinutes: 5,
     endTime: null,
     paused: false,
-    pausedTime: null
+    pausedTime: null,
+    wordGuessed: false
   };
 
   var gameID = Games.insert(game);
@@ -133,7 +137,9 @@ function generateNewPlayer(game, name) {
     category: null,
     isQuestionMaster: false,
     isInsider: false,
-    isFirstPlayer: false
+    isFirstPlayer: false,
+    voted: false,
+    votedFor: ''
   };
 
   var playerID = Players.insert(player);
@@ -209,6 +215,10 @@ function trackGameState() {
     Session.set("currentView", "gameView");
   } else if (game.state === "waitingForPlayers") {
     Session.set("currentView", "lobby");
+  } else if (game.state === "wordGuessed") {
+    Session.set("currentView", "wordGuessed");
+  } else if (game.state === "finished") {
+    Session.set("currentView", "finished");
   }
 }
 
@@ -450,6 +460,9 @@ Template.joinGame.rendered = function (event) {
 };
 
 Template.lobby.helpers({
+  site: function() {
+    return siteName;
+  },
   game: function () {
     return getCurrentGame();
   },
@@ -496,8 +509,6 @@ Template.lobby.events({
         FlashMessages.sendError("Can't play with less than 4 players");
         return;
     }
-
-    
 
     UserWords.insert(word);
 
@@ -595,7 +606,7 @@ Template.lobby.events({
     if(shouldPlayAllInsiderVariant === true){
       variantsUsed.push("all-insiders");
     }
-    
+
     // Track game analytics
     let gameAnalytics = {
       gameID: game._id,
@@ -713,7 +724,7 @@ Template.lobby.events({
         }
       });
     }
-    
+
     let variantsUsed = [];
     if(shouldAddFollowerRole === true){
       variantsUsed.push("follower");
@@ -780,36 +791,128 @@ function getTimeRemaining() {
   return timeRemaining;
 }
 
+function getPlayersInGame() {
+  var game = getCurrentGame();
+
+  if (!game) {
+    return null;
+  }
+
+  var players = Players.find({
+    'gameID': game._id
+  });
+
+  return players;
+}
+function playersWhoHaventVoted() {
+  var game = getCurrentGame();
+
+  if (!game) {
+    return null;
+  }
+
+  var players = Players.find({
+    'gameID': game._id,
+    'voted': false
+  });
+  return players;
+}
+
+Template.finished.helpers({
+  wordGuessed: function() {
+    const game = getCurrentGame();
+    return game.wordGuessed;
+  },
+  word: function() {
+    const game = getCurrentGame();
+    console.log(`Word is ${game.word}`);
+    return game.word;
+  },
+  insider: function(){
+    const game = getCurrentGame();
+    return game.usingAllInsidersVariant ? "Everybody!!" : game.insiderName;
+  },
+  players: getPlayersInGame
+})
+Template.finished.events({
+  'click .btn-end': function () {
+    let game = getCurrentGame();
+    let players = Array.from(Players.find({ gameID: game._id }));
+    Games.update(game._id, { $set: { state: 'waitingForPlayers'} });
+
+    let currentTimeRemaining = getTimeRemaining();
+
+    players.forEach(p => {
+      Players.update(p._id, { $set: {voted: false, votedFor: ''}})
+    })
+
+    let gameAnalytics = {
+      gameID: game._id,
+      playerCount: players.length,
+      timeLeft: currentTimeRemaining/1000/60,
+      status: "game ended",
+    };
+    Analytics.insert(gameAnalytics);
+  },
+});
+
 Template.gameView.helpers({
   game: getCurrentGame,
   player: getCurrentPlayer,
-  players: function () {
-    var game = getCurrentGame();
-
-    if (!game) {
-      return null;
-    }
-
-    var players = Players.find({
-      'gameID': game._id
-    });
-
-    return players;
-  },
+  players: getPlayersInGame,
   words: function () {
     return words_en;
   },
   gameFinished: function () {
     var timeRemaining = getTimeRemaining();
+    fromTimerFinishGame(timeRemaining);
 
     return timeRemaining === 0;
   },
   timeRemaining: function () {
     var timeRemaining = getTimeRemaining();
-
     return moment(timeRemaining).format('mm[<span>:</span>]ss');
   }
 });
+
+function fromTimerFinishGame(timeRemaining){
+  const game = getCurrentGame();
+
+  if(timeRemaining === 0) {
+    Games.update(game._id, { $set: { state: 'finished'} });
+  }
+}
+
+Template.wordGuessed.helpers({
+  players: getPlayersInGame,
+  playersToVote: playersWhoHaventVoted,
+  word: function() {
+    var game = getCurrentGame();
+    return game.word;
+  },
+  timeRemaining: function () {
+    var timeRemaining = getTimeRemaining();
+    fromTimerFinishGame(timeRemaining);
+    return moment(timeRemaining).format('mm[<span>:</span>]ss');
+  }
+});
+
+Template.wordGuessed.events({
+
+  // Once vote is clicked we need to disable all the boxes. Maybe show the remaining people to vote
+  // Send a "voted" object to the server
+  'click .vote': function() {
+    const me = getCurrentPlayer();
+    const game = getCurrentGame();
+    Players.update(me._id, { $set: { voted: true, votedFor: this.name }})
+
+    const players = getPlayersInGame();
+    const allVoted = players.fetch().every(p => p.voted);
+    if(allVoted){
+      Games.update(game._id, { $set: { state: 'finished'} });
+    }
+  }
+})
 
 Template.gameView.events({
   'click .btn-leave': leaveGame,
@@ -820,7 +923,7 @@ Template.gameView.events({
     let currentTimeRemaining = getTimeRemaining();
 
     let players = Array.from(Players.find({ gameID: game._id }));
-  
+
     let gameAnalytics = {
       gameID: game._id,
       playerCount: players.length,
@@ -848,8 +951,8 @@ Template.gameView.events({
     }
     var localEndTime = moment().add(newTimeLeftInSeconds, 'seconds');
     var gameEndTime = TimeSync.serverTime(localEndTime);
-    Games.update(game._id, { $set: { paused: false, pausedTime: null, endTime: gameEndTime } });
-    
+    Games.update(game._id, { $set: { state: 'wordGuessed', wordGuessed: true, paused: false, pausedTime: null, endTime: gameEndTime } });
+
     var players = Array.from(Players.find({ gameID: game._id }));
     let gameAnalytics = {
       gameID: game._id,

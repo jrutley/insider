@@ -100,7 +100,7 @@
     <div id="qrcode" class="qrcode"></div>
 
     <div id="access-link" class="access-link">
-      <a href="{{ accessLink }}">https://insider-online.herokuapp.com/{{ accessLink }}</a>
+      <a href="{{ accessLink }}">{{ site }}/{{ accessLink }}</a>
     </div>
   </div>
 </div>
@@ -157,7 +157,7 @@
 	<input type="text" id="user-word" name="userWord" placeholder='{{_ "ui.enter word" }}'>
 <BR>
 	<button class="btn-submit-user-word">{{_ "ui.submit user word" }}</button>
-</div>	
+</div>
 </td>
 </tr>
 <tr>
@@ -265,7 +265,7 @@
     {{/if}}
   </div>
   <div class="u-cf"></div>
-  
+
 <!--
   <h5>{{_ "ui.location reference" }}</h5>
   <ul class="location-list">
@@ -275,19 +275,19 @@
       </li>
     {{/each}}
   </ul>
--->    
+-->
   {{#if player.isQuestionMaster}}
     <button id="btn-word-guessed" class="btn-word-guessed">
         <img src="/icons/hourglass-start.svg" id="hourglass" class="icon">
            {{_ "ui.word guessed"}}</button>
   {{/if}}
   <hr>
-  
+
   <div class="button-container">
     <button class="btn-end">{{_ "ui.end game" }}</button>
     <button class="btn-leave">{{_ "ui.leave game" }}</button>
   </div>
-  
+
   <script type="text/javascript">
     var sc_project=12248875; 
     var sc_invisible=1; 
@@ -301,6 +301,59 @@
     class="statcounter"
     src="https://c.statcounter.com/12248875/0/f1acb2d6/1/"
     alt="Web Analytics"></a></div></noscript>
+</template>
+
+<template name="playerVote">
+  <li>
+      {{ name }} <button disabled="{{ voted }}" class="vote">{{_ "ui.vote" }}</button>
+  </li>
+</template>
+<template name="playersRemaining">
+  <div class="player-name">
+    <li>
+      {{ name }}
+  </li>
+</div>
+</template>
+
+<template name="finished">
+  <h2>GAME OVER</h2>
+  {{#if wordGuessed }}
+    <h4>The Insider was {{ insider }}!</h4>
+    <div>
+      Here's how people voted:
+      {{#each players}}
+        <li>{{ name }}: {{ votedFor }}</li>
+      {{/each}}
+    </div>
+  {{else}}
+    <h4>The word was {{ word }}! Too bad!</h4>
+  {{/if}}
+  <button class="btn-end">End Game</button>
+
+</template>
+
+<template name="wordGuessed">
+  <h2>You guessed it!</h2>
+  <h4>The word was {{ word }}</h4>
+  <h4><a href="#" class="game-countdown {{#if gameFinished }}finished{{/if}} {{#if game.paused }}paused{{/if}}">{{{ timeRemaining }}}</a></h4>
+	<table>
+  <tr>
+    <td>
+      <h5>{{_ "ui.who is the insider" }}</h5>
+      <ul class="ingame-player-list">
+        {{#each players }}
+          {{> playerVote }}
+        {{/each}}
+      </ul>
+    </td>
+    </tr>
+    <tr>
+      <td>
+        Still waiting for {{#each playersToVote }} {{> playersRemaining }} {{/each}}
+      </td>
+    </tr>
+    </table>
 </template>
 
 <template name="createGame">
