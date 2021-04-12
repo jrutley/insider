@@ -649,11 +649,11 @@ Template.lobby.events({
     var localEndTime = moment().add(game.lengthInMinutes, 'minutes');
     var gameEndTime = TimeSync.serverTime(localEndTime);
 
-    
+
 
     let playerIndexesLeft = []
 
-    // Distributing the roles: 
+    // Distributing the roles:
     let i = 0;
     while (playerIndexesLeft.length < players.count()) {
       playerIndexesLeft.push(i);
@@ -699,7 +699,7 @@ Template.lobby.events({
           isFollower: index === followerIndex,
         }
       });
-      
+
       if(index === insiderIndex){
         currentInsiderName = player.name
       };
@@ -825,7 +825,6 @@ Template.finished.helpers({
   },
   word: function() {
     const game = getCurrentGame();
-    console.log(`Word is ${game.word}`);
     return game.word;
   },
   insider: function(){
@@ -856,6 +855,13 @@ Template.finished.events({
   },
 });
 
+Template.playerVote.helpers({
+  iVoted: function() {
+    const player = getCurrentPlayer();
+    return player.voted;
+  }
+})
+
 Template.gameView.helpers({
   game: getCurrentGame,
   player: getCurrentPlayer,
@@ -884,7 +890,10 @@ function fromTimerFinishGame(timeRemaining){
 }
 
 Template.wordGuessed.helpers({
-  players: getPlayersInGame,
+  players: function() {
+    const playersInGame = Array.from(getPlayersInGame());
+    return playersInGame.filter(p => !p.isQuestionMaster)
+  },
   playersToVote: playersWhoHaventVoted,
   word: function() {
     var game = getCurrentGame();
