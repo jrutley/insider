@@ -290,6 +290,14 @@ Template.main.helpers({
   }
 });
 
+Template.registerHelper('and',(a,b)=>{
+  return a && b;
+});
+Template.registerHelper('or',(a,b)=>{
+  return a || b;
+});  
+
+
 Template.footer.helpers({
   languages: getLanguageList
 })

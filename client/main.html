@@ -255,7 +255,9 @@
       </li>
     {{/each}}
   </ul>
-  <h4>Variants:</h4>
+  {{#if or game.usingFollowerVariant game.usingAllInsidersVariant}}
+    <h4>Variants:</h4>
+  {{/if}}
   <div class="variants-container">
     {{#if game.usingFollowerVariant}}
       {{{_ "ui.follower variant used" }}}
